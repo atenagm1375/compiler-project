@@ -46,6 +46,9 @@ extern YYSTYPE cool_yylval;
  int nested_comments_count = 0;
  int lenstr = 0;
 
+bool invalidSize();
+int strLengthError();
+
 %}
 
 /*
@@ -61,6 +64,7 @@ WHITESPACE      [ \t\r\v\f]
 
 %x COMMENT
 %x STRING
+%x WRONGSTRING
 
 %%
 
@@ -271,12 +275,12 @@ f(?i:alse) {
 
 {UPPERCASE}{ALPHANUMERIC}* {
 		cool_yylval.symbol = idtable.add_string(yytext);
-		return(TYPE_ID);
+		return(TYPEID);
 }
 
 {LOWERCASE}{ALPHANUMERIC}* {
 		cool_yylval.symbol = idtable.add_string(yytext);
-		return(OBJECT_ID);
+		return(OBJECTID);
 }
 
 {DIGIT}+ {
@@ -290,6 +294,118 @@ f(?i:alse) {
   *  \n \t \b \f, the result is c.
   *
   */
+\" {
+		BEGIN(STRING);
+}
 
+<STRING>\" {
+		cool_yylval.symbol = stringtable.add_string(yytext);
+		lenstr = 0;
+		string_buf[0] = '\0';
+		BEGIN(INITIAL);
+		return(STR_CONST);
+}
+
+<STRING>(\0 | \\\0) {
+        yylval.error_msg = "String contains null character";
+		BEGIN(WRONGSTRING);
+		return(ERROR);
+}
+
+<WRONGSTRING>.*[\"\n] {
+		BEGIN(INITIAL);
+}
+
+<STRING>\\\n {
+		if (invalidSize()) {
+			return(strLengthError());
+		}
+		curr_lineno++;
+		strcat(string_buf, "\n");
+		lenstr++;
+}
+
+<STRING>\n {
+		curr_lineno++;
+		BEGIN(INITIAL);
+		lenstr = 0;
+		string_buf[0] = '\0';
+		cool_yylval.error_msg = "Unterminated string constant";
+		return(ERROR);
+}
+
+<STRING><<EOF>> {
+		BEGIN(INITIAL);
+		cool_yylval.error_msg = "EOF in string constant";
+		return(ERROR);
+}
+
+<STRING>\\n {
+		if (invalidSize()) {
+			return(strLengthError());
+		}
+		curr_lineno++;
+		strcat(string_buf, "\n");
+}
+
+<STRING>\\b {
+		if (invalidSize()) {
+			return(strLengthError());
+		}
+		lenstr++;
+		strcat(string_buf, "\b");
+}
+
+<STRING>\\t {
+		if (invalidSize()) {
+			return(strLengthError());
+		}
+		lenstr++;
+		strcat(string_buf, "\t");
+}
+
+<STRING>\\. {
+		if (invalidSize()) {
+			return(strLengthError());
+		}
+		lenstr++;
+		strcat(string_buf, &strdup(yytext)[1]);
+}
+
+<STRING>. {
+		if (invalidSize()) {
+			return(strLengthError());
+		}
+		lenstr++;
+		strcat(string_buf, yytext);
+}
+
+\n {
+		curr_lineno++;
+}
+
+{WHITESPACE} {}
+
+. {
+		yylval.error_msg = yytext;
+		return(ERROR);
+}
 
 %%
+
+/* =========================================================== */
+
+bool invalidSize() {
+	if (lenstr > MAX_STR_CONST) {
+		BEGIN(WRONGSTRING);
+		return(true);
+	}
+	return(false);
+}
+
+int strLengthError() {
+	lenstr = 0;
+	string_buf[0] = '\0';
+	cool_yylval.error_msg = "String constant too long";
+	return(ERROR);
+}
