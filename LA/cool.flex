@@ -56,7 +56,7 @@ DARROW          =>
 DIGIT           [0-9]
 UPPERCASE       [A-Z]
 LOWERCASE       [a-z]
-ALPHANUMERIC    [a-zA-z0-9]
+ALPHANUMERIC    [a-zA-z0-9_]
 WHITESPACE      [ \t\r\v\f]
 
 %x COMMENT
