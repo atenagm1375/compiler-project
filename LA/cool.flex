@@ -97,6 +97,17 @@ WHITESPACE      [ \t\r\v\f]
 }
 
  /*
+  *  The single-line comment.
+  */
+"--".*\n {
+		curr_lineno++;
+}
+
+"--".* {
+		curr_lineno++;
+}
+
+ /*
   *  The multiple-character operators.
   */
 {DARROW}		{ return (DARROW); }
