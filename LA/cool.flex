@@ -43,6 +43,9 @@ extern YYSTYPE cool_yylval;
  *  Add Your own definitions here
  */
 
+ int nested_comments_count = 0;
+ int lenstr = 0;
+
 %}
 
 /*
@@ -50,6 +53,14 @@ extern YYSTYPE cool_yylval;
  */
 
 DARROW          =>
+DIGIT           [0-9]
+UPPERCASE       [A-Z]
+LOWERCASE       [a-z]
+ALPHANUMERIC    [a-zA-z0-9]
+WHITESPACE      [ \t\r\v\f]
+
+%x COMMENT
+%x STRING
 
 %%
 
@@ -57,6 +68,34 @@ DARROW          =>
   *  Nested comments
   */
 
+<INITIAL, COMMENT>"(*" {
+		nested_comments_count++;
+		BEGIN(COMMENT);
+}
+
+<COMMENT>\n {
+		curr_lineno++;
+}
+
+<COMMENT>. {}
+
+<COMMENT>"*)" {
+		nested_comments_count--;
+		if (nested_comments_count == 0){
+			BEGIN(INITIAL);
+		}
+}
+
+<COMMENT><<EOF>> {
+		BEGIN(INITIAL);
+		cool_yylval.error_msg = "EOF in comment";
+		return(ERROR);
+}
+
+<INITIAL>"*)" {
+		cool_yylval.error_msg = "Unmatched *)";
+		return(ERROR);
+}
 
  /*
   *  The multiple-character operators.
@@ -71,7 +110,7 @@ DARROW          =>
 
  /*
   *  String constants (C syntax)
-  *  Escape sequence \c is accepted for all characters c. Except for 
+  *  Escape sequence \c is accepted for all characters c. Except for
   *  \n \t \b \f, the result is c.
   *
   */
