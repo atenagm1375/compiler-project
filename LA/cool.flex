@@ -102,6 +102,81 @@ WHITESPACE      [ \t\r\v\f]
   */
 {DARROW}		{ return (DARROW); }
 
+"<-" {
+		return(ASSIGN);
+}
+
+"<=" {
+		return(LE);
+}
+
+ /*
+  *  The single-character operators.
+  */
+"=" {
+		return('=');
+}
+
+"<" {
+		return('<');
+}
+
+"{" {
+		return('{');
+}
+
+"}" {
+		return('}');
+}
+
+"(" {
+		return('(');
+}
+
+")" {
+		return(')');
+}
+
+"+" {
+		return('+');
+}
+
+"-" {
+		return('-');
+}
+
+"*" {
+		return('*');
+}
+
+"/" {
+		return('/');
+}
+
+"." {
+		return('.');
+}
+
+"~" {
+		return('~');
+}
+
+"@" {
+		return('@');
+}
+
+";" {
+		return(';');
+}
+
+":" {
+		return(':');
+}
+
+"," {
+		return(',');
+}
+
  /*
   * Keywords are case-insensitive except for the values true and false,
   * which must begin with a lower-case letter.
