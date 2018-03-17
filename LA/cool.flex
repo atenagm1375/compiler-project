@@ -67,7 +67,6 @@ WHITESPACE      [ \t\r\v\f]
  /*
   *  Nested comments
   */
-
 <INITIAL, COMMENT>"(*" {
 		nested_comments_count++;
 		BEGIN(COMMENT);
@@ -181,7 +180,98 @@ WHITESPACE      [ \t\r\v\f]
   * Keywords are case-insensitive except for the values true and false,
   * which must begin with a lower-case letter.
   */
+t(?i:rue) {
+		cool_yylval.boolean = true;
+		return(BOOL_CONST);
+}
 
+f(?i:alse) {
+		cool_yylval.boolean = false;
+		return(BOOL_CONST);
+}
+
+(?i:class) {
+		return(CLASS);
+}
+
+(?i:inherits) {
+		return(INHERITS);
+}
+
+(?i:if) {
+		return(IF);
+}
+
+(?i:then) {
+		return(THEN);
+}
+
+(?i:else) {
+		return(ELSE);
+}
+
+(?i:fi) {
+		return(FI);
+}
+
+(?i:while) {
+		return(WHILE);
+}
+
+(?i:loop) {
+		return(LOOP);
+}
+
+(?i:pool) {
+		return(POOL);
+}
+
+(?i:case) {
+		return(CASE);
+}
+
+(?i:of) {
+		return(OF);
+}
+
+(?i:esac) {
+		return(ESAC);
+}
+
+(?i:new) {
+		return(NEW);
+}
+
+(?i:let) {
+		return(LET);
+}
+
+(?i:in) {
+		return(IN);
+}
+
+(?i:isvoid) {
+		return(ISVOID);
+}
+
+(?i:not) {
+		return(NOT);
+}
+
+{UPPERCASE}{ALPHANUMERIC}* {
+		cool_yylval.symbol = idtable.add_string(yytext);
+		return(TYPE_ID);
+}
+
+{LOWERCASE}{ALPHANUMERIC}* {
+		cool_yylval.symbol = idtable.add_string(yytext);
+		return(OBJECT_ID);
+}
+
+{DIGIT}+ {
+		cool_yylval.symbol = inttable.add_string(yytext);
+		return(INT_CONST);
+}
 
  /*
   *  String constants (C syntax)
