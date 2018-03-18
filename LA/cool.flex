@@ -360,6 +360,14 @@ f(?i:alse) {
 		strcat(string_buf, "\t");
 }
 
+<STRING>\\f {
+		if (invalidSize()) {
+			return(strLengthError());
+		}
+		lenstr++;
+		strcat(string_buf, "\f");
+}
+
 <STRING>\\. {
 		if (invalidSize()) {
 			return(strLengthError());
@@ -380,7 +388,7 @@ f(?i:alse) {
 		curr_lineno++;
 }
 
-{WHITESPACE}+ {}
+{WHITESPACE} {}
 
 . {
 		yylval.error_msg = yytext;
