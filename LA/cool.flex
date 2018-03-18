@@ -341,7 +341,6 @@ f(?i:alse) {
 		if (invalidSize()) {
 			return(strLengthError());
 		}
-		curr_lineno++;
 		strcat(string_buf, "\n");
 }
 
