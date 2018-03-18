@@ -57,9 +57,6 @@ int strLengthError();
 
 DARROW          =>
 DIGIT           [0-9]
-UPPERCASE       [A-Z]
-LOWERCASE       [a-z]
-ALPHANUMERIC    [a-zA-z0-9_]
 WHITESPACE      [ \t\r\v\f]
 
 %x COMMENT
@@ -273,12 +270,12 @@ f(?i:alse) {
 		return(NOT);
 }
 
-{UPPERCASE}{ALPHANUMERIC}* {
+[A-Z][a-zA-Z_0-9]* {
 		cool_yylval.symbol = idtable.add_string(yytext);
 		return(TYPEID);
 }
 
-{LOWERCASE}{ALPHANUMERIC}* {
+[a-z][a-zA-Z_0-9]* {
 		cool_yylval.symbol = idtable.add_string(yytext);
 		return(OBJECTID);
 }
@@ -384,7 +381,7 @@ f(?i:alse) {
 		curr_lineno++;
 }
 
-{WHITESPACE} {}
+{WHITESPACE}+ {}
 
 . {
 		yylval.error_msg = yytext;
