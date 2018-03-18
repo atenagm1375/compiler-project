@@ -71,7 +71,7 @@ WHITESPACE      [ \t\r\v\f]
  /*
   *  Nested comments
   */
-<INITIAL, COMMENT>"(*" {
+<INITIAL,COMMENT>"(*" {
 		nested_comments_count++;
 		BEGIN(COMMENT);
 }
@@ -299,15 +299,15 @@ f(?i:alse) {
 }
 
 <STRING>\" {
-		cool_yylval.symbol = stringtable.add_string(yytext);
+		cool_yylval.symbol = stringtable.add_string(string_buf);
 		lenstr = 0;
 		string_buf[0] = '\0';
 		BEGIN(INITIAL);
 		return(STR_CONST);
 }
 
-<STRING>(\0 | \\\0) {
-        yylval.error_msg = "String contains null character";
+<STRING>(\0|\\\0) {
+        cool_yylval.error_msg = "String contains null character";
 		BEGIN(WRONGSTRING);
 		return(ERROR);
 }
@@ -396,7 +396,7 @@ f(?i:alse) {
 /* =========================================================== */
 
 bool invalidSize() {
-	if (lenstr > MAX_STR_CONST) {
+	if (lenstr + 1 >= MAX_STR_CONST) {
 		BEGIN(WRONGSTRING);
 		return(true);
 	}
