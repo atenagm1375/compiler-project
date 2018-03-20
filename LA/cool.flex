@@ -341,6 +341,7 @@ f(?i:alse) {
 		if (invalidSize()) {
 			return(strLengthError());
 		}
+		lenstr++;
 		strcat(string_buf, "\n");
 }
 
