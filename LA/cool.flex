@@ -305,11 +305,14 @@ f(?i:alse) {
 
 <STRING>(\0|\\\0) {
         cool_yylval.error_msg = "String contains null character";
+		lenstr = 0;
+		string_buf[0] = '\0';
 		BEGIN(WRONGSTRING);
 		return(ERROR);
 }
 
 <WRONGSTRING>.*[\"\n] {
+		curr_lineno++;
 		BEGIN(INITIAL);
 }
 
