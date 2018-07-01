@@ -19,7 +19,7 @@ extern char *curr_filename;
 // as fixed names used by the runtime system.
 //
 //////////////////////////////////////////////////////////////////////
-static Symbol 
+static Symbol
     arg,
     arg2,
     Bool,
@@ -49,6 +49,15 @@ static Symbol
 //
 // Initializing the predefined symbols.
 //
+Type Null_type = NULL;
+Type Self_type = NULL;
+Type Int_type = NULL;
+Type String_type = NULL;
+Type IO_type = NULL;
+Type Bool_type = NULL;
+Type Object_type = NULL;
+
+
 static void initialize_constants(void)
 {
     arg         = idtable.add_string("arg");
@@ -64,7 +73,7 @@ static void initialize_constants(void)
     length      = idtable.add_string("length");
     Main        = idtable.add_string("Main");
     main_meth   = idtable.add_string("main");
-    //   _no_class is a symbol that can't be the name of any 
+    //   _no_class is a symbol that can't be the name of any
     //   user-defined class.
     No_class    = idtable.add_string("_no_class");
     No_type     = idtable.add_string("_no_type");
@@ -94,17 +103,17 @@ void ClassTable::install_basic_classes() {
     // The tree package uses these globals to annotate the classes built below.
    // curr_lineno  = 0;
     Symbol filename = stringtable.add_string("<basic class>");
-    
+
     // The following demonstrates how to create dummy parse trees to
     // refer to basic Cool classes.  There's no need for method
     // bodies -- these are already built into the runtime system.
-    
+
     // IMPORTANT: The results of the following expressions are
     // stored in local variables.  You will want to do something
     // with those variables at the end of this method to make this
     // code meaningful.
 
-    // 
+    //
     // The Object class has no parent class. Its methods are
     //        abort() : Object    aborts the program
     //        type_name() : Str   returns a string representation of class name
@@ -114,7 +123,7 @@ void ClassTable::install_basic_classes() {
     // are already built in to the runtime system.
 
     Class_ Object_class =
-	class_(Object, 
+	class_(Object,
 	       No_class,
 	       append_Features(
 			       append_Features(
@@ -123,15 +132,15 @@ void ClassTable::install_basic_classes() {
 			       single_Features(method(copy, nil_Formals(), SELF_TYPE, no_expr()))),
 	       filename);
 
-    // 
+    //
     // The IO class inherits from Object. Its methods are
     //        out_string(Str) : SELF_TYPE       writes a string to the output
     //        out_int(Int) : SELF_TYPE            "    an int    "  "     "
     //        in_string() : Str                 reads a string from the input
     //        in_int() : Int                      "   an int     "  "     "
     //
-    Class_ IO_class = 
-	class_(IO, 
+    Class_ IO_class =
+	class_(IO,
 	       Object,
 	       append_Features(
 			       append_Features(
@@ -142,14 +151,14 @@ void ClassTable::install_basic_classes() {
 										      SELF_TYPE, no_expr()))),
 					       single_Features(method(in_string, nil_Formals(), Str, no_expr()))),
 			       single_Features(method(in_int, nil_Formals(), Int, no_expr()))),
-	       filename);  
+	       filename);
 
     //
     // The Int class has no methods and only a single attribute, the
-    // "val" for the integer. 
+    // "val" for the integer.
     //
     Class_ Int_class =
-	class_(Int, 
+	class_(Int,
 	       Object,
 	       single_Features(attr(val, prim_slot, no_expr())),
 	       filename);
@@ -167,9 +176,9 @@ void ClassTable::install_basic_classes() {
     //       length() : Int                       returns length of the string
     //       concat(arg: Str) : Str               performs string concatenation
     //       substr(arg: Int, arg2: Int): Str     substring selection
-    //       
+    //
     Class_ Str_class =
-	class_(Str, 
+	class_(Str,
 	       Object,
 	       append_Features(
 			       append_Features(
@@ -178,14 +187,14 @@ void ClassTable::install_basic_classes() {
 									       single_Features(attr(val, Int, no_expr())),
 									       single_Features(attr(str_field, prim_slot, no_expr()))),
 							       single_Features(method(length, nil_Formals(), Int, no_expr()))),
-					       single_Features(method(concat, 
+					       single_Features(method(concat,
 								      single_Formals(formal(arg, Str)),
-								      Str, 
+								      Str,
 								      no_expr()))),
-			       single_Features(method(substr, 
-						      append_Formals(single_Formals(formal(arg, Int)), 
+			       single_Features(method(substr,
+						      append_Formals(single_Formals(formal(arg, Int)),
 								     single_Formals(formal(arg2, Int))),
-						      Str, 
+						      Str,
 						      no_expr()))),
 	       filename);
 }
@@ -195,20 +204,20 @@ void ClassTable::install_basic_classes() {
 // semant_error is an overloaded function for reporting errors
 // during semantic analysis.  There are three versions:
 //
-//    ostream& ClassTable::semant_error()                
+//    ostream& ClassTable::semant_error()
 //
 //    ostream& ClassTable::semant_error(Class_ c)
 //       print line number and filename for `c'
 //
-//    ostream& ClassTable::semant_error(Symbol filename, tree_node *t)  
+//    ostream& ClassTable::semant_error(Symbol filename, tree_node *t)
 //       print a line number and filename
 //
 ///////////////////////////////////////////////////////////////////
 
 ostream& ClassTable::semant_error(Class_ c)
-{                                                             
+{
     return semant_error(c->get_filename(),c);
-}    
+}
 
 ostream& ClassTable::semant_error(Symbol filename, tree_node *t)
 {
@@ -216,11 +225,11 @@ ostream& ClassTable::semant_error(Symbol filename, tree_node *t)
     return semant_error();
 }
 
-ostream& ClassTable::semant_error()                  
-{                                                 
-    semant_errors++;                            
+ostream& ClassTable::semant_error()
+{
+    semant_errors++;
     return error_stream;
-} 
+}
 
 
 
@@ -252,4 +261,202 @@ void program_class::semant()
     }
 }
 
+
+void class__class::collect_Methods() {
+
+}
+
+
+bool class__class::check_Class_Types() {
+
+}
+
+
+void method_class::collect_Feature_Types() {
+
+}
+
+
+bool method_class::install_Feature_Types() {
+
+}
+
+
+bool method_class::check_Feature_Types() {
+
+}
+
+
+void attr_class::collect_Feature_Types() {
+
+}
+
+
+bool attr_class::check_Feature_Types() {
+
+}
+
+
+bool attr_class::install_Feature_Types() {
+
+}
+
+
+Type formal_class::collect_Formal_Type() {
+
+}
+
+
+bool formal_class::check_Formal_Type() {
+
+}
+
+
+bool formal_class::check_Formal_Type() {
+
+}
+
+
+bool branch_class::install_Case_Type() {
+
+}
+
+
+Type branch_class::check_Case_Type() {
+
+}
+
+
+Type assign_class::do_Check_Expr_Type() {
+    if (name == self) {
+        semant_error(filename, this) << "Assignment on self object" << endl;
+    }
+    Type T1 = var_table->lookup(name);
+    Type T2 = expr->get_Expr_Type();
+    if (!T1) {
+        semant_error(filename, this) << "Variable " << name << " is not defined" << endl;
+    } else if (T2 && !T2.is_sub_type_of(T1)) {
+        semant_error(filename, this) << "Invalid assignment of class " << T1 << " to class " << T2 << endl;
+    }
+    return T2;
+}
+
+
+Type static_dispatch_class::do_Check_Expr_Type() {
+
+}
+
+
+Type dispatch_class::do_Check_Expr_Type() {
+
+}
+
+
+Type cond_class::do_Check_Expr_Type() {
+
+}
+
+
+Type loop_class::do_Check_Expr_Type() {
+
+}
+
+
+Type typcase_class::do_Check_Expr_Type() {
+
+}
+
+
+Type block_class::do_Check_Expr_Type() {
+
+}
+
+
+Type let_class::do_Check_Expr_Type() {
+
+}
+
+
+Type plus_class::do_Check_Expr_Type() {
+
+}
+
+
+Type sub_class::do_Check_Expr_Type() {
+
+}
+
+
+Type mul_class::do_Check_Expr_Type() {
+
+}
+
+
+Type divide_class::do_Check_Expr_Type() {
+
+}
+
+
+Type neg_class::do_Check_Expr_Type() {
+
+}
+
+
+Type lt_class::do_Check_Expr_Type() {
+
+}
+
+
+Type eq_class::do_Check_Expr_Type() {
+
+}
+
+
+Type leq_class::do_Check_Expr_Type() {
+
+}
+
+
+Type comp_class::do_Check_Expr_Type() {
+
+}
+
+
+Type int_const_class::do_Check_Expr_Type() {
+    return Int_type;
+}
+
+
+Type bool_const_class::do_Check_Expr_Type() {
+    return Bool_type;
+}
+
+
+Type string_const_class::do_Check_Expr_Type() {
+    return String_type;
+}
+
+
+Type new__class::do_Check_Expr_Type() {
+    Type T = class_table->lookup(type_name);
+    if (!T) {
+        semant_error(filename, this) << "Class " << T << "not defined" << endl;
+    }
+    return T
+}
+
+
+Type isvoid_class::do_Check_Expr_Type() {
+
+}
+
+
+Type no_expr_class::do_Check_Expr_Type() {
+    return Null_type;
+}
+
+
+Type object_class::do_Check_Expr_Type() {
+
+}
 

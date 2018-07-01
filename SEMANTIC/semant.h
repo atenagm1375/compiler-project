@@ -2,7 +2,7 @@
 #define SEMANT_H_
 
 #include <assert.h>
-#include <iostream>  
+#include <iostream>
 #include "cool-tree.h"
 #include "stringtab.h"
 #include "symtab.h"
