@@ -10,9 +10,10 @@
 extern int semant_debug;
 extern char *curr_filename;
 
-SymbolTable< Symbol, class_tree_node_type> *class_table;
-SymbolTable< Symbol, class_tree_node_type> *var_table;
-SymbolTable< Symbol, class_method_type> *method_table;
+symtable_type *class_table;
+symtable_type *var_table;
+method_table_type *method_table;
+ClassTable *table;
 
 //////////////////////////////////////////////////////////////////////
 //
@@ -53,16 +54,6 @@ static Symbol
 //
 // Initializing the predefined symbols.
 //
-Type Null_type = NULL;
-Type Self_type = NULL;
-Type Int_type = NULL;
-Type String_type = NULL;
-Type IO_type = NULL;
-Type Bool_type = NULL;
-Type Object_type = NULL;
-Type current_type = NULL;
-
-
 static void initialize_constants(void)
 {
     arg         = idtable.add_string("arg");
@@ -95,11 +86,163 @@ static void initialize_constants(void)
     val         = idtable.add_string("_val");
 }
 
+Type Null_type = NULL;
+Type Self_type = NULL;
+Type Int_type = NULL;
+Type String_type = NULL;
+Type IO_type = NULL;
+Type Bool_type = NULL;
+Type Object_type = NULL;
+Type current_type = NULL;
+
+Symbol filename;
+
+Type lookup_install_type(Symbol name, Class_ class_=NULL, Type parent_type=NULL) {
+    class_tree_node type = class_table->lookup(name);
+    if (!type) {
+        type = new class_tree_node_type(name);
+        class_table->addid(name, type);
+    }
+    if (class_) {
+        if (type->is_defined()) {
+            table->semant_error() << "Overriding existing class " << name << endl;
+        }
+        type->set_contain(class_);
+    }
+    if (parent_type) {
+        type->set_parent(parent_type);
+    }
+    return type;
+}
+
+class_tree_node union_set(class_tree_node first, class_tree_node second) {
+	first = first->find_set();
+	second = second->find_set();
+	if (first == second) {
+		return NULL;
+	}
+
+	class_tree_node new_root = (first->rank < second->rank) ? second : first;
+	new_root->size = first->size + second->size;
+	new_root->rank += (first->rank == second->rank);
+	first->head = second->head = new_root;
+
+	return new_root;
+}
+
+Type::Type(class_tree_node n) : node(n ? n : Null_type.node) { }
+
+Type::operator bool() const {
+    return node && node != Null_type.node && node->is_defined();
+}
+
+bool operator ==(const Type &a, class_tree_node b) { return a.node == b; }
+
+bool operator!=(const Type &a, class_tree_node b) { return !(a == b); }
+
+bool operator==(class_tree_node a, const Type &b) { return a == b.node; }
+
+bool operator!=(class_tree_node a, const Type &b) { return !(a == b); }
+
+bool operator==(const Type &a, const Type &b) { return a.node == b.node; }
+
+bool operator!=(const Type &a, const Type &b) { return !(a == b); }
+
+bool operator==(const Expression &e, const Type &t) { return e->get_Expr_Type() == t; }
+
+bool operator!=(const Expression &e, const Type &t) { return !(e == t); }
+
+bool operator<=(const Type &a, const Type &b) {
+	if (b == Self_type) {
+		return a == Self_type;
+	}
+	return (a == Self_type ? current_type : a)->is_sub_class_of(b);
+}
+
+Type lca_assist(class_tree_node t1, class_tree_node t2) {
+    if (!t1 || !t2) {
+        return NULL;
+    }
+    int depth = (t1->depth < t2->depth) ? t1->depth : t2->depth;
+    while(t1 && t1->depth != depth) {
+        t1 = t1->parent;
+    }
+    while(t2 && t2->depth != depth) {
+        t2 = t2->parent;
+    }
+
+    while(t1 && t2 && t1 != t2) {
+        t1 = t1->parent;
+        t2 = t2->parent;
+    }
+    return (t1) ? t2 : NULL;
+}
+
+Type find_type_lca(const Type &T1, const Type &T2) {
+    Type t1 = (T1 == Self_type) ? current_type : T1;
+    Type t2 = (T2 == Self_type) ? current_type : T2;
+    return lca_assist(t1, t2);
+}
+
+bool class_method_type::is_same_method(class_method t) const {
+	if (!t || t->type != type) {
+		return false;
+	}
+	return next ? next->is_same_method( t->next) : true;
+}
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
+    table = this;
+    class_table = &symtable;
+    var_table = &vartable;
+    class_table->enterscope();
+    install_basic_classes();
+    class_tree_node root = class_table->probe(Object);
 
-    /* Fill this in */
+    if (!root) {
+        semant_error() << "Could not find Object class" << endl;
+        return;
+    }
 
+    int counter = root->find_set()->size;
+    for (int i = classes->first(); classes->more(i); i = classes->next(i)) {
+        Class_ current_class = classes->nth(i);
+
+        class_tree_node cur_node = lookup_install_type(current_class->get_name());
+        if (cur_node->contain == NULL) {
+            cur_node->set_contain(current_class);
+        } else {
+            semant_error(current_class) << "Redefinition of Class " << current_class->get_name() << endl;
+            return;
+        }
+
+        class_tree_node par_node = lookup_install_type(current_class->get_parent_name());
+        if (par_node == cur_node) {
+            semant_error(current_class) << "Class " << current_class->get_name() << " Cannot inherit from itself"
+                << endl;
+        }
+        if (par_node == Int_type || par_node == Bool_type || par_node == String_type) {
+            semant_error(current_class) << "Cannot inherit from " << current_class->get_parent_name() << endl;
+        }
+        if (par_node == Self_type) {
+            semant_error(current_class) << "Cannot inherit from SELF_TYPE" << endl;
+            par_node = Object_type;
+        }
+        if (!cur_node->set_parent(par_node)) {
+            semant_error(current_class) << "Class " << current_class->get_name() << " cannot inherit from "
+                << current_class->get_parent_name() << endl;
+            return;
+        }
+        counter++;
+    }
+
+    class_tree_node_type::fill_node_depth();
+
+    root->walk_down();
+    if (!class_table->lookup(Main)) {
+		semant_error() << "Class Main is not defined." << endl;
+	}
+    class_table->exitscope();
 }
 
 void ClassTable::install_basic_classes() {
@@ -231,23 +374,81 @@ void ClassTable::install_basic_classes() {
 //
 ///////////////////////////////////////////////////////////////////
 
-ostream& ClassTable::semant_error(Class_ c)
-{
+ostream& ClassTable::semant_error(Class_ c) {
     return semant_error(c->get_filename(),c);
 }
 
-ostream& ClassTable::semant_error(Symbol filename, tree_node *t)
-{
+ostream& ClassTable::semant_error(Symbol filename, tree_node *t) {
     error_stream << filename << ":" << t->get_line_number() << ": ";
     return semant_error();
 }
 
-ostream& ClassTable::semant_error()
-{
+ostream& ClassTable::semant_error() {
     semant_errors++;
     return error_stream;
 }
 
+
+
+ostream& semant_error(Class_ c) {
+    return table->semant_error(c->get_filename(), c);
+}
+
+ostream& semant_error(tree_node *t) {
+    return table->semant_error(current_type->contain->get_filename(), t);
+}
+
+ostream& semant_error(Symbol filename, tree_node *t) {
+    return table->semant_error(filename, t);
+}
+
+ostream& semant_error() {
+    return table->semant_error();
+}
+
+
+class_tree_node class_tree_node_type::nodes_head = NULL;
+
+bool class_tree_node_type::is_defined() const {
+	return contain && this != Null_type;
+}
+
+bool class_tree_node_type::fill_depth() {
+    if (depth == -1) {
+        if (parent) {
+            if (!parent->fill_depth()) {
+                semant_error(this->contain) << "Class " << name << " inherits from undefined class "
+                    << parent->name << endl;
+            }
+            depth = parent->depth + 1;
+        }
+        else {
+            depth = 0;
+        }
+        find_set();
+    }
+    return this->contain;
+}
+
+bool class_tree_node_type::walk_down() {
+    ::current_type = this;
+    ::filename = contain->get_filename();
+
+    var_table->enterscope();
+    var_table->addid(self, Self_type);
+    if (is_defined()) {
+        this->contain->check_Class_Types();
+    }
+
+    bool ret = true;
+    class_tree_node ch = this->child;
+    while (ch) {
+        ret &= ch->walk_down();
+        ch = ch->sibiling;
+    }
+    var_table->exitscope();
+    return ret;
+}
 
 
 /*   This is the entry point to the semantic checker.
@@ -280,7 +481,48 @@ void program_class::semant()
 
 
 Type check_dispatch(Type T0, Type T, Symbol name, Expressions actual, Expression e) {
-    // TODO
+    class_method types = T->find_method(name);
+	if (!types) {
+		semant_error(filename, e) << "Call on method " << name << " on Class " << T->name
+            << " failed." << endl;
+		semant_error(filename, e) << "\tCould not find method." << endl;
+		return Null_type;
+	}
+
+	Type ret_type = types->hd();
+	ret_type = ret_type == Self_type ? T0 : ret_type;
+
+	types = types->tl();
+
+	int i = actual->first();
+	while (actual->more( i) && types) {
+		Expression expr = actual->nth( i);
+		Type act_type = expr->get_Expr_Type();
+		Type para_type = types->hd();
+		act_type = act_type == Self_type ? current_type : act_type;
+		if (act_type && para_type && act_type.is_sub_type_of( para_type)) {
+			types = types->tl(), i = actual->next( i);
+		} else {
+			break;
+		}
+	}
+	if (actual->more( i) || types) {
+		char *err_str;
+		if (!actual->more( i)) {
+			err_str = "Too few arguments supplied";
+		} else {
+			if(types) {
+				err_str = "Arguments miss match";
+			} else {
+				err_str = "Too many arguments supplied";
+			}
+		}
+
+		semant_error(filename, e) << "Calls on method " << name << " on Class " << T->name << " failed." << endl;
+		semant_error(filename, e) << "\t" << err_str << endl;
+	}
+
+    return ret_type;
 }
 
 
@@ -317,13 +559,29 @@ void class__class::collect_Methods() {
 
 
 bool class__class::check_Class_Types() {
-    // TODO
+    for (int i = features->first(); features->more(i); i = features->next(i)) {
+        features->nth(i)->install_Feature_Types();
+    }
+
+    for (int i = features->first(); features->more(i); i = features->next(i)) {
+        Feature f = features->nth(i);
+        if (!f->check_Feature_Types()) { continue; }
+    }
+    return true;
 }
 
 
 void method_class::collect_Feature_Types() {
     feature_type = lookup_install_type(return_type);
-    // TODO
+	class_method syms = new class_method_type( feature_type);
+	class_method last = syms;
+	for (int i = formals->first(); formals->more(i); i = formals->next(i)) {
+		Type type = formals->nth(i)->collect_Formal_Type();
+		class_method cur = new class_method_type(type);
+		last->set_tl(cur);
+		last = cur;
+	}
+    method_table->addid( name, syms);
 }
 
 
@@ -331,7 +589,39 @@ bool method_class::install_Feature_Types() { return true; }
 
 
 bool method_class::check_Feature_Types() {
-    // TODO
+    if (current_type->parent) {
+		class_method last = current_type->parent->find_method(name);
+		class_method syms = current_type->find_method(name);
+		if (last && !syms->is_same_method(last)) {
+			semant_error(filename, this) << "Signature changed for method " << name << endl;
+		}
+	}
+
+	var_table->enterscope();
+	for (int i = formals->first(); formals->more(i); i = formals->next(i)) {
+		Formal fm = formals->nth(i);
+		if (fm->check_Formal_Type()) {
+			fm->install_Formal_Type();
+		}
+	}
+
+	Type type = feature_type;
+	Type body_type = expr->get_Expr_Type();
+	var_table->exitscope();
+
+	if (type) {
+		if (!body_type) {
+			body_type = type;
+		}
+		if (!body_type.is_sub_type_of( type)) {
+			semant_error(filename, this) << "In Class " << current_type->name << ", return type of method "
+            << this->name << " which is not a subtype of class " << type->name << endl;
+		}
+	} else {
+		semant_error(filename, this) << "In Class " << current_type->name << ", return type of method " << this->name
+		       << ", Class " << type->name << " is not defined." << endl;
+	}
+    return type && body_type && body_type.is_sub_type_of(type);
 }
 
 
@@ -363,7 +653,7 @@ bool attr_class::check_Feature_Types() {
     } else if (!T1) {
         T1 = T;
     }
-    return T1
+    return T1;
 }
 
 
@@ -416,7 +706,7 @@ Type branch_class::check_Case_Type(Type path_type) {
         var_table->enterscope();
         var_table->addid(name, id_type);
         T = expr->get_Expr_Type();
-        var->exitscope();
+        var_table->exitscope();
     }
     return T ? T : path_type;
 }
@@ -431,7 +721,7 @@ Type assign_class::do_Check_Expr_Type() {
     if (!T1) {
         semant_error(filename, this) << "Variable " << name << " is not defined" << endl;
     } else if (T2 && !T2.is_sub_type_of(T1)) {
-        semant_error(filename, this) << "Invalid assignment of class " << T1 << " to class " << T2 << endl;
+        semant_error(filename, this) << "Invalid assignment of class " << T1->name << " to class " << T2->name << endl;
     }
     return T2;
 }
@@ -536,7 +826,7 @@ Type let_class::do_Check_Expr_Type() {
         var_table->exitscope();
     }
     if (!T0) {
-        semant_error(filename, this) << "Type " << T0 << " not found" << endl;
+        semant_error(filename, this) << "Type " << type_decl << " not found" << endl;
     }
     if (T0 && T1 && !T1.is_sub_type_of(T0)) {
         semant_error(filename, this) << "Could not initialize variable " << identifier
@@ -581,8 +871,8 @@ Type lt_class::do_Check_Expr_Type() {
 
 
 Type eq_class::do_Check_Expr_Type() {
-    T1 = e1->get_Expr_Type();
-    T2 = e2->get_Expr_Type();
+    Type T1 = e1->get_Expr_Type();
+    Type T2 = e2->get_Expr_Type();
     if (T1 != T2 && (T1 == Int_type || T2 == Int_type || T1 == Bool_type || T2 == Bool_type
         || T1 == String_type || T2 == String_type)){
             semant_error(filename, this) << "Could not compare Int, Bool, or String with other types" << endl;
@@ -623,7 +913,7 @@ Type string_const_class::do_Check_Expr_Type() {
 Type new__class::do_Check_Expr_Type() {
     Type T = class_table->lookup(type_name);
     if (!T) {
-        semant_error(filename, this) << "Class " << T << "not defined" << endl;
+        semant_error(filename, this) << "Class " << type_name << "not defined" << endl;
     }
     return T;
 }
